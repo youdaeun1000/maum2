@@ -1,12 +1,11 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { MoodType, MoodEntry, MOOD_CONFIGS, MoodConfig, PatternAnalysisResult, NUANCE_PAIRS, NuanceKey } from './types';
+import { MoodType, MoodEntry, MOOD_CONFIGS, MoodConfig, NUANCE_PAIRS, NuanceKey } from './types';
 import MoodSelector from './components/MoodSelector';
 import MoodChart from './components/MoodChart';
 import MoodCalendar from './components/MoodCalendar';
 import PatternAnalysis from './components/PatternAnalysis';
 import LockScreen from './components/LockScreen';
-import { analyzePatterns } from './geminiService';
 
 const App: React.FC = () => {
   // --- Data States ---
@@ -23,10 +22,6 @@ const App: React.FC = () => {
   const [currentMood, setCurrentMood] = useState<MoodType | null>(null);
   const [note, setNote] = useState('');
   const [nuances, setNuances] = useState<Partial<Record<NuanceKey, string>>>({});
-  
-  // --- AI States ---
-  const [patternAnalysis, setPatternAnalysis] = useState<PatternAnalysisResult | null>(null);
-  const [isPatternLoading, setIsPatternLoading] = useState(false);
   
   // --- Security States ---
   const [savedPin, setSavedPin] = useState<string | null>(() => localStorage.getItem('mind_diary_pin'));
@@ -71,28 +66,6 @@ const App: React.FC = () => {
     localStorage.setItem('mood_entries', JSON.stringify(entries));
   }, [entries]);
 
-  const handleFetchAnalysis = useCallback(async () => {
-    if (entries.length === 0) {
-      setPatternAnalysis(null);
-      return;
-    }
-    setIsPatternLoading(true);
-    try {
-      const patterns = await analyzePatterns(entries);
-      setPatternAnalysis(patterns);
-    } catch (error) {
-      console.error("Pattern Analysis Error:", error);
-    } finally {
-      setIsPatternLoading(false);
-    }
-  }, [entries]);
-
-  useEffect(() => {
-    if (!isAppLocked && entries.length > 0 && !patternAnalysis) {
-      handleFetchAnalysis();
-    }
-  }, [isAppLocked, entries.length, patternAnalysis, handleFetchAnalysis]);
-
   const toggleNuance = (key: NuanceKey, value: string) => {
     setNuances(prev => {
       if (prev[key] === value) {
@@ -118,13 +91,11 @@ const App: React.FC = () => {
     setNote('');
     setNuances({});
     setShowForm(false);
-    setPatternAnalysis(null);
   };
 
   const handleDeleteEntry = (id: string) => {
     if (window.confirm('이 기록을 삭제하시겠습니까?')) {
       setEntries(prev => prev.filter(e => e.id !== id));
-      setPatternAnalysis(null);
     }
   };
 
@@ -134,7 +105,6 @@ const App: React.FC = () => {
     const end = new Date(endDate).setHours(23, 59, 59, 999);
     if (window.confirm(`${startDate}부터 ${endDate}까지의 기록 ${bulkDeleteCount}개를 정말 삭제하시겠습니까?`)) {
       setEntries(prev => prev.filter(e => e.timestamp < start || e.timestamp > end));
-      setPatternAnalysis(null);
       setStartDate('');
       setEndDate('');
     }
@@ -162,7 +132,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24">
+    <div className="min-h-screen bg-slate-50 pb-24 text-slate-900">
       <header className="bg-white/80 backdrop-blur-md border-b border-gray-100 sticky top-0 z-30 px-4 py-4 sm:px-8">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">마음일기</h1>
@@ -250,8 +220,8 @@ const App: React.FC = () => {
               </section>
 
               <section className="space-y-4">
-                <h2 className="text-lg font-bold text-gray-800 flex items-center"><i className="fas fa-brain mr-2 text-purple-500"></i>상황별 마음 분석</h2>
-                <PatternAnalysis analysis={patternAnalysis} loading={isPatternLoading} />
+                <h2 className="text-lg font-bold text-gray-800 flex items-center"><i className="fas fa-chart-pie mr-2 text-purple-500"></i>상세 마음 리포트</h2>
+                <PatternAnalysis entries={entries} />
               </section>
             </div>
 
