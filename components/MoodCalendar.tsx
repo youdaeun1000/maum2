@@ -18,7 +18,7 @@ const MoodCalendar: React.FC<MoodCalendarProps> = ({ entries }) => {
     return { days: d, month: m, year: y, firstDayOfMonth: f };
   }, [currentDate]);
 
-  // 날짜별 평균 감정 데이터 맵핑
+  // 날짜별 평균 감정 데이터 맵핑 (이모지와 평균 점수 포함)
   const dailyMoodMap = useMemo(() => {
     const map: Record<string, { sum: number; count: number }> = {};
     
@@ -34,16 +34,19 @@ const MoodCalendar: React.FC<MoodCalendarProps> = ({ entries }) => {
       map[dateKey].count += 1;
     });
 
-    const finalMap: Record<string, string> = {};
+    const finalMap: Record<string, { emoji: string; avg: string }> = {};
     const configs = Object.values(MOOD_CONFIGS) as MoodConfig[];
 
     Object.keys(map).forEach(key => {
       const avg = map[key].sum / map[key].count;
-      // 평균 점수와 가장 가까운 설정 찾기
+      // 평균 점수와 가장 가까운 설정 찾기 (이모지 결정용)
       const closest = configs.reduce((prev, curr) => 
         Math.abs(curr.score - avg) < Math.abs(prev.score - avg) ? curr : prev
       );
-      finalMap[key] = closest.emoji;
+      finalMap[key] = {
+        emoji: closest.emoji,
+        avg: avg.toFixed(2)
+      };
     });
 
     return finalMap;
@@ -88,14 +91,14 @@ const MoodCalendar: React.FC<MoodCalendarProps> = ({ entries }) => {
         {Array.from({ length: days }).map((_, i) => {
           const day = i + 1;
           const dateKey = `${year}-${month}-${day}`;
-          const moodEmoji = dailyMoodMap[dateKey];
+          const moodData = dailyMoodMap[dateKey];
           const isToday = new Date().toDateString() === new Date(year, month, day).toDateString();
 
           return (
             <div 
               key={day} 
               className={`aspect-square rounded-xl flex flex-col items-center justify-center relative transition-all border ${
-                moodEmoji 
+                moodData 
                   ? 'bg-indigo-50/50 border-indigo-100 shadow-sm' 
                   : 'bg-gray-50/30 border-transparent'
               } ${isToday ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}`}
@@ -103,10 +106,15 @@ const MoodCalendar: React.FC<MoodCalendarProps> = ({ entries }) => {
               <span className={`text-[10px] font-medium absolute top-1 left-1.5 ${isToday ? 'text-indigo-600 font-bold' : 'text-gray-400'}`}>
                 {day}
               </span>
-              {moodEmoji && (
-                <span className="text-xl sm:text-2xl mt-1 animate-in zoom-in duration-300">
-                  {moodEmoji}
-                </span>
+              {moodData && (
+                <>
+                  <span className="text-xl sm:text-2xl mt-1 animate-in zoom-in duration-300">
+                    {moodData.emoji}
+                  </span>
+                  <span className="text-[9px] font-black text-indigo-400 leading-none mt-0.5">
+                    {moodData.avg}
+                  </span>
+                </>
               )}
             </div>
           );

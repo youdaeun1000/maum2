@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type, Modality } from "@google/genai";
-import { MoodEntry, MOOD_CONFIGS, PatternAnalysisResult, NUANCE_PAIRS } from "./types";
+import { MoodEntry, MOOD_CONFIGS, PatternAnalysisResult } from "./types";
 
 /**
  * 상황-감정 패턴 심층 분석
@@ -13,32 +13,28 @@ export const analyzePatterns = async (entries: MoodEntry[]): Promise<PatternAnal
     };
   }
 
+  // Initialize with API key directly from process.env as per guidelines
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const fullHistory = entries
-    .map(e => {
-      const nuanceStr = e.nuances 
-        ? Object.values(e.nuances).join(', ') 
-        : '';
-      return `- [${MOOD_CONFIGS[e.mood].emoji}] 기분: ${MOOD_CONFIGS[e.mood].label} ${nuanceStr ? `(${nuanceStr})` : ''} / 메모: ${e.note}`;
-    })
+    .map(e => `- [${MOOD_CONFIGS[e.mood].emoji}] 상황/메모: ${e.note}`)
     .join("\n");
 
   const patternPrompt = `
-    사용자의 감정 기록들을 분석하여 특정 상황이나 심리 상태 사이의 상관관계를 찾아내세요.
-    기본 기분 이외에도 '불안', '걱정', '죄책감' 등의 상세 감정 뉘앙스를 함께 고려하여 분석하세요.
+    사용자의 메모들을 분석하여 특정 상황이나 키워드와 감정 사이의 상관관계를 찾아내세요.
+    예를 들어 "커피를 마실 때 주로 즐거워함", "회사 업무 이야기가 나올 때 불안해함" 같은 패턴을 3개 정도 추출하세요.
     
     기록 리스트:
     ${fullHistory}
     
     응답 형식 (JSON):
     {
-      "summary": "사용자의 전반적인 심리 상태와 감정 스펙트럼에 대한 다정한 요약 (2문장)",
+      "summary": "사용자의 전반적인 생활 패턴과 감정 경향에 대한 다정한 요약 (2문장)",
       "patterns": [
         {
-          "situation": "특정 심리적 상황 (예: 자기 전 불안함이 높을 때, 당당함이 느껴지는 성취의 순간)",
-          "moodEmoji": "그 상황에서 주로 나타나는 이모지",
-          "description": "감정의 상관관계에 대한 짧은 심리학적 설명"
+          "situation": "상황 키워드 (예: 친구와의 만남, 조용한 새벽)",
+          "moodEmoji": "그 상황에서 주로 느끼는 감정의 이모지",
+          "description": "상황과 감정의 연결 이유에 대한 짧은 설명"
         }
       ]
     }
@@ -79,7 +75,11 @@ export const analyzePatterns = async (entries: MoodEntry[]): Promise<PatternAnal
   }
 };
 
+/**
+ * 텍스트를 다정한 목소리로 읽어주는 오디오 데이터 생성 (TTS)
+ */
 export const generateSpeech = async (text: string): Promise<string | undefined> => {
+  // Initialize right before call to ensure latest API key is used
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
     const response = await ai.models.generateContent({
@@ -94,6 +94,7 @@ export const generateSpeech = async (text: string): Promise<string | undefined> 
         },
       },
     });
+    // Return the base64 encoded audio data from candidates
     return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
   } catch (error) {
     console.error("Gemini TTS Error:", error);
